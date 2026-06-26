@@ -41,7 +41,7 @@ jobs:
       - name: Apply VS010 patches
         run: |
           # Copy DTS
-          cp vs010.dts openwrt/target/linux/qualcommax/dts/
+          cp ipq5018-vs010.dts openwrt/target/linux/qualcommax/dts/
           
           # Patch image Makefile - add VS010 device definition
           cd openwrt
