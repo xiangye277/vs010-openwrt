@@ -16,34 +16,34 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          sudo apt update
+          sudo apt update -qq
           sudo apt install -y build-essential clang flex bison g++ gawk \
             gcc-multilib g++-multilib gettext git libncurses-dev libssl-dev \
             python3-setuptools python3-distutils rsync swig unzip zlib1g-dev \
             file wget quilt time
 
-      - name: Cache OpenWrt source
-        uses: actions/cache@v4
-        with:
-          path: openwrt
-          key: openwrt-main-${{ github.run_id }}
-          restore-keys: openwrt-main-
-
       - name: Clone OpenWrt
         run: |
-          if [ ! -d openwrt/.git ]; then
-            git clone --depth=1 https://github.com/openwrt/openwrt.git
-          fi
+          git clone --depth=1 --single-branch https://github.com/openwrt/openwrt.git
+        timeout-minutes: 10
+
+      - name: Update feeds
+        run: |
           cd openwrt
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
+          ./scripts/feeds update packages luci routing
+        timeout-minutes: 10
+
+      - name: Install feeds
+        run: |
+          cd openwrt
+          ./scripts/feeds install -a -p packages
+          ./scripts/feeds install -a -p luci
+          ./scripts/feeds install -a -p routing
+        timeout-minutes: 5
 
       - name: Apply VS010 patches
         run: |
-          # Copy DTS
           cp ipq5018-vs010.dts openwrt/target/linux/qualcommax/dts/
-          
-          # Patch image Makefile - add VS010 device definition
           cd openwrt
           cat >> target/linux/qualcommax/image/ipq50xx.mk << 'MKEOF'
 
@@ -70,39 +70,26 @@ jobs:
           		curl \
           		iperf3 \
           		htop
-          	endef
-          	TARGET_DEVICES += unicom_vs010
-          	MKEOF
+          endef
+          TARGET_DEVICES += unicom_vs010
+          MKEOF
 
-          	# Create uci-defaults script for first-boot customization
-          	mkdir -p files/etc/uci-defaults
-          	cat > files/etc/uci-defaults/99-vs010-custom << 'UCIEOF'
-          	#!/bin/sh
-          	# VS010 default configuration - runs once on first boot
+          mkdir -p files/etc/uci-defaults
+          cat > files/etc/uci-defaults/99-vs010-custom << 'UCIEOF'
+          #!/bin/sh
+          uci set dropbear.@dropbear[0].enable='1'
+          uci set dropbear.@dropbear[0].Port='22'
+          uci set dropbear.@dropbear[0].PasswordAuth='on'
+          uci set dropbear.@dropbear[0].RootPasswordAuth='on'
+          uci commit dropbear
+          uci set system.@system[0].timezone='CST-8'
+          uci set system.@system[0].zonename='Asia/Shanghai'
+          uci commit system
+          exit 0
+          UCIEOF
+          chmod +x files/etc/uci-defaults/99-vs010-custom
 
-          	# Enable SSH by default
-          	uci set dropbear.@dropbear[0].enable='1'
-          	uci set dropbear.@dropbear[0].Port='22'
-          	uci set dropbear.@dropbear[0].PasswordAuth='on'
-          	uci set dropbear.@dropbear[0].RootPasswordAuth='on'
-          	uci commit dropbear
-
-          	# Set timezone to China
-          	uci set system.@system[0].timezone='CST-8'
-          	uci set system.@system[0].zonename='Asia/Shanghai'
-          	uci commit system
-
-          	# Disable firewall WAN blocking (for now - re-enable after setup)
-          	uci set firewall.@zone[1].input='ACCEPT'
-          	uci set firewall.@zone[1].forward='ACCEPT'
-          	uci commit firewall
-
-          	exit 0
-          	UCIEOF
-          	chmod +x files/etc/uci-defaults/99-vs010-custom
-
-          	# Patch board.d/02_network
-          sed -i '/^[[:space:]]*cmcc,mr3000d-ci/i\	unicom,vs010|\\' target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
+          sed -i '/^[[:space:]]*cmcc,mr3000d-ci/i\\tunicom,vs010|\\' target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
 
       - name: Configure build
         run: |
@@ -134,6 +121,5 @@ jobs:
         run: |
           echo "=== Build Result ==="
           ls -lh openwrt/bin/targets/qualcommax/ipq50xx/*vs010* 2>/dev/null || echo "No firmware found"
-          echo ""
           echo "=== Build Log (last 50 lines) ==="
           tail -50 openwrt/build.log 2>/dev/null || echo "No build log"
