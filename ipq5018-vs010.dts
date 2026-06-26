@@ -117,10 +117,15 @@
 					#address-cells = <1>;
 					#size-cells = <1>;
 
-					hw_mac_addr: mac-address@0 {
-						compatible = "mac-base";
+					// VS010 MAC layout: raw bytes at ART+0
+					// eth0: D8:3D:CC:72:D5:43 @ offset 0x00
+					// eth1: D8:3D:CC:72:D5:42 @ offset 0x06
+					macaddr_eth0: macaddr@0 {
 						reg = <0x0 0x6>;
-						#nvmem-cell-cells = <1>;
+					};
+
+					macaddr_eth1: macaddr@6 {
+						reg = <0x6 0x6>;
 					};
 				};
 			};
@@ -155,7 +160,7 @@
 &dp1 {
 	status = "okay";
 
-	nvmem-cells = <&hw_mac_addr 0>;
+	nvmem-cells = <&macaddr_eth0>;
 	nvmem-cell-names = "mac-address";
 };
 
@@ -163,7 +168,7 @@
 &dp2 {
 	status = "okay";
 
-	nvmem-cells = <&hw_mac_addr 1>;
+	nvmem-cells = <&macaddr_eth1>;
 	nvmem-cell-names = "mac-address";
 
 	fixed-link {

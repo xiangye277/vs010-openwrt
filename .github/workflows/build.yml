@@ -1,4 +1,4 @@
-name: Build VS010 OpenWrt
+name: Build VS010 OpenWrt 科学版
 
 on:
   workflow_dispatch:
@@ -65,29 +65,94 @@ jobs:
           		luci-i18n-base-zh-cn \
           		luci-i18n-firewall-zh-cn \
           		luci-i18n-opkg-zh-cn \
+          		luci-i18n-smartdns-zh-cn \
           		dropbear \
           		openssh-sftp-server \
+          		dnsmasq-full \
+          		smartdns \
+          		luci-app-smartdns \
+          		https-dns-proxy \
+          				luci-app-https-dns-proxy \
+          					luci-app-adblock \
+          					luci-app-sqm \
+          					adblock \
+          					sqm-scripts \
+          					wireguard-tools \
+          		luci-proto-wireguard \
+          		kmod-wireguard \
           		curl \
+          		wget-ssl \
           		iperf3 \
-          		htop
+          		htop \
+          		nano
           endef
           TARGET_DEVICES += unicom_vs010
           MKEOF
 
+          # ── uci-defaults: 首次启动配置 ──
           mkdir -p files/etc/uci-defaults
-          cat > files/etc/uci-defaults/99-vs010-custom << 'UCIEOF'
+
+          cat > files/etc/uci-defaults/99-vs010-ssh << 'UCIEOF'
           #!/bin/sh
           uci set dropbear.@dropbear[0].enable='1'
           uci set dropbear.@dropbear[0].Port='22'
           uci set dropbear.@dropbear[0].PasswordAuth='on'
           uci set dropbear.@dropbear[0].RootPasswordAuth='on'
           uci commit dropbear
+          UCIEOF
+
+          cat > files/etc/uci-defaults/99-vs010-system << 'UCIEOF'
+          #!/bin/sh
           uci set system.@system[0].timezone='CST-8'
           uci set system.@system[0].zonename='Asia/Shanghai'
+          uci set system.@system[0].hostname='VS010'
           uci commit system
-          exit 0
           UCIEOF
-          chmod +x files/etc/uci-defaults/99-vs010-custom
+
+          cat > files/etc/uci-defaults/99-vs010-smartdns << 'UCIEOF'
+          #!/bin/sh
+          # SmartDNS 预配置：国内组走 119.29.29.29/223.5.5.5，国外组走 8.8.8.8/1.1.1.1
+          uci set smartdns.@smartdns[0].enabled='1'
+          uci set smartdns.@smartdns[0].port='6053'
+          uci set smartdns.@smartdns[0].cache_size='4096'
+          uci set smartdns.@smartdns[0].rr_ttl_min='300'
+          uci set smartdns.@smartdns[0].serve_expired='1'
+          uci set smartdns.@smartdns[0].dualstack_ip_selection='1'
+          uci add smartdns server
+          uci set smartdns.@server[-1].name='domestic-119'
+          uci set smartdns.@server[-1].ip='119.29.29.29'
+          uci set smartdns.@server[-1].type='udp'
+          uci set smartdns.@server[-1].group='domestic'
+          uci add smartdns server
+          uci set smartdns.@server[-1].name='domestic-223'
+          uci set smartdns.@server[-1].ip='223.5.5.5'
+          uci set smartdns.@server[-1].type='udp'
+          uci set smartdns.@server[-1].group='domestic'
+          uci add smartdns server
+          uci set smartdns.@server[-1].name='foreign-google'
+          uci set smartdns.@server[-1].ip='8.8.8.8'
+          uci set smartdns.@server[-1].type='udp'
+          uci set smartdns.@server[-1].group='foreign'
+          uci add smartdns server
+          uci set smartdns.@server[-1].name='foreign-cloudflare'
+          uci set smartdns.@server[-1].ip='1.1.1.1'
+          uci set smartdns.@server[-1].type='udp'
+          uci set smartdns.@server[-1].group='foreign'
+          uci commit smartdns
+          /etc/init.d/smartdns enable
+          UCIEOF
+
+          cat > files/etc/uci-defaults/99-vs010-dnsmasq << 'UCIEOF'
+          #!/bin/sh
+          # dnsmasq 上游指向 SmartDNS
+          uci add_list dhcp.@dnsmasq[0].server='127.0.0.1#6053'
+          uci set dhcp.@dnsmasq[0].noresolv='1'
+          uci commit dhcp
+          /etc/init.d/dnsmasq restart 2>/dev/null || true
+          UCIEOF
+
+          chmod +x files/etc/uci-defaults/99-vs010-*
+          # ── end uci-defaults ──
 
           sed -i '/^[[:space:]]*cmcc,mr3000d-ci/i\\tunicom,vs010|\\' target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
 
