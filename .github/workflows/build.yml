@@ -60,12 +60,48 @@ jobs:
           	NAND_SIZE := 128m
           	IMAGES += factory.img
           	IMAGE/factory.img := append-ubi | qsdk-ipq-factory-nand
-          	DEVICE_PACKAGES := ath11k-firmware-ipq5018-qcn6122
-          endef
-          TARGET_DEVICES += unicom_vs010
-          MKEOF
+          	DEVICE_PACKAGES := ath11k-firmware-ipq5018-qcn6122 \
+          		luci \
+          		luci-i18n-base-zh-cn \
+          		luci-i18n-firewall-zh-cn \
+          		luci-i18n-opkg-zh-cn \
+          		dropbear \
+          		openssh-sftp-server \
+          		curl \
+          		iperf3 \
+          		htop
+          	endef
+          	TARGET_DEVICES += unicom_vs010
+          	MKEOF
 
-          # Patch board.d/02_network
+          	# Create uci-defaults script for first-boot customization
+          	mkdir -p files/etc/uci-defaults
+          	cat > files/etc/uci-defaults/99-vs010-custom << 'UCIEOF'
+          	#!/bin/sh
+          	# VS010 default configuration - runs once on first boot
+
+          	# Enable SSH by default
+          	uci set dropbear.@dropbear[0].enable='1'
+          	uci set dropbear.@dropbear[0].Port='22'
+          	uci set dropbear.@dropbear[0].PasswordAuth='on'
+          	uci set dropbear.@dropbear[0].RootPasswordAuth='on'
+          	uci commit dropbear
+
+          	# Set timezone to China
+          	uci set system.@system[0].timezone='CST-8'
+          	uci set system.@system[0].zonename='Asia/Shanghai'
+          	uci commit system
+
+          	# Disable firewall WAN blocking (for now - re-enable after setup)
+          	uci set firewall.@zone[1].input='ACCEPT'
+          	uci set firewall.@zone[1].forward='ACCEPT'
+          	uci commit firewall
+
+          	exit 0
+          	UCIEOF
+          	chmod +x files/etc/uci-defaults/99-vs010-custom
+
+          	# Patch board.d/02_network
           sed -i '/^[[:space:]]*cmcc,mr3000d-ci/i\	unicom,vs010|\\' target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
 
       - name: Configure build
