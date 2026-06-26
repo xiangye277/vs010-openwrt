@@ -43,13 +43,13 @@ jobs:
           # Copy DTS
           cp vs010.dts openwrt/target/linux/qualcommax/dts/
           
-          # Patch image Makefile
+          # Patch image Makefile - add VS010 device definition
           cd openwrt
           cat >> target/linux/qualcommax/image/ipq50xx.mk << 'MKEOF'
 
           define Device/unicom_vs010
-          	$$(call Device/FitImageLzma)
-          	$$(call Device/UbiFit)
+          	$(call Device/FitImageLzma)
+          	$(call Device/UbiFit)
           	DEVICE_VENDOR := Unicom
           	DEVICE_MODEL := VS010
           	DEVICE_DTS_CONFIG := config@mp02.1
@@ -58,13 +58,15 @@ jobs:
           	PAGESIZE := 2048
           	IMAGE_SIZE := 59392k
           	NAND_SIZE := 128m
+          	IMAGES += factory.img
+          	IMAGE/factory.img := append-ubi | qsdk-ipq-factory-nand
           	DEVICE_PACKAGES := ath11k-firmware-ipq5018-qcn6122
           endef
           TARGET_DEVICES += unicom_vs010
           MKEOF
 
           # Patch board.d/02_network
-          sed -i '/^[[:space:]]*cmcc,mr3000d-ci/i\\tunicom,vs010|\\' target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
+          sed -i '/^[[:space:]]*cmcc,mr3000d-ci/i\	unicom,vs010|\\' target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
 
       - name: Configure build
         run: |

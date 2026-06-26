@@ -1,0 +1,13 @@
+WARNING: Makefile 'package/feeds/video/sdl3/Makefile' has a build dependency on 'libwayland', which does not exist
+make[2]: Entering directory '/home/runner/work/vs010-openwrt/vs010-openwrt/openwrt/scripts/config'
+make[2]: 'conf' is up to date.
+make[2]: Leaving directory '/home/runner/work/vs010-openwrt/vs010-openwrt/openwrt/scripts/config'
+Makefile:41: *** empty variable name.  Stop.
+make[5]: *** [Makefile:21: image-prereq] Error 2
+make[4]: *** [Makefile:12: prereq] Error 2
+time: target/linux/prereq#0.14#0.12#0.25
+    ERROR: target/linux failed to build.
+make[3]: *** [target/Makefile:32: target/linux/prereq] Error 1
+make[2]: *** [target/Makefile:24: /home/runner/work/vs010-openwrt/vs010-openwrt/openwrt/staging_dir/target-aarch64_cortex-a53_musl/stamp/.target_prereq] Error 2
+make[1]: *** [/home/runner/work/vs010-openwrt/vs010-openwrt/openwrt/include/toplevel.mk:211: prereq] Error 2
+make: *** [/home/runner/work/vs010-openwrt/vs010-openwrt/openwrt/include/toplevel.mk:231: world] Error 2
