@@ -1,0 +1,12 @@
+*.o
+*.ko
+*.mod.c
+build_dir/
+staging_dir/
+bin/
+dl/
+feeds/
+tmp/
+logs/
+.env
+*.swp
